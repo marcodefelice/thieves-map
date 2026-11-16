@@ -1,0 +1,23 @@
+@media (max-width: 700px) {
+  .app {
+    min-height: 0;
+  }
+
+  .bottom-bar {
+    bottom: calc(16px + max(32px, env(safe-area-inset-bottom, 0px)));
+  }
+
+  .legend,
+  .latest-reports {
+    bottom: calc(102px + max(32px, env(safe-area-inset-bottom, 0px)));
+  }
+
+  .leaflet-control-zoom {
+    margin-bottom: calc(270px + max(32px, env(safe-area-inset-bottom, 0px))) !important;
+  }
+
+  .sheet {
+    max-height: calc(100dvh - max(32px, env(safe-area-inset-bottom, 0px)));
+    margin-bottom: max(32px, env(safe-area-inset-bottom, 0px));
+  }
+}

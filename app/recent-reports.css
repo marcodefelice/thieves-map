@@ -1,0 +1,14 @@
+.latest-list{max-height:min(190px,25dvh);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+@media(min-width:701px){
+  .map-panels{position:absolute;z-index:500;top:90px;right:32px;bottom:110px;width:220px;display:flex;flex-direction:column-reverse;justify-content:flex-end;gap:12px;pointer-events:none}
+  .map-panels .legend,.map-panels .latest-reports{position:static;transform:none;width:100%;pointer-events:auto}
+  .map-panels .legend{flex:none}
+  .map-panels .latest-reports{min-height:0;display:flex;flex-direction:column}
+  .map-panels .latest-list{min-height:0}
+}
+@media(max-width:700px){
+  .map-panels{display:contents}
+  .latest-reports{right:16px}
+  .latest-list{max-height:min(130px,18dvh)}
+  .leaflet-bottom .leaflet-control-zoom{position:fixed;top:163px;right:16px;margin:0!important}
+}

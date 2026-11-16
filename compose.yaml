@@ -1,0 +1,23 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - reports_data:/data
+    environment:
+      # Set these in a .env file when deploying behind a trusted reverse proxy.
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:3000}
+      IP_HASH_SALT: ${IP_HASH_SALT:-change-this-for-production}
+      TRUST_PROXY: ${TRUST_PROXY:-0}
+      GEOCODER_USER_AGENT: ${GEOCODER_USER_AGENT:-ThievesMap/1.0 (self-hosted map)}
+      TURSO_DATABASE_URL: ${TURSO_DATABASE_URL:-}
+      TURSO_AUTH_TOKEN: ${TURSO_AUTH_TOKEN:-}
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+    restart: unless-stopped
+volumes:
+  reports_data:
