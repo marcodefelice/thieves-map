@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createClient } from '@libsql/client';
 import { createReportStore } from '../lib/db.mjs';
 import { currentModerator, hashPassword, hashToken, verifyPassword } from '../lib/moderator-auth.mjs';
-import { validateModeratorApplication, validateModeratorReport } from '../lib/validation.mjs';
+import { validateAdminReport, validateModeratorApplication, validateModeratorReport } from '../lib/validation.mjs';
 
 const now = '2026-11-19T10:00:00.000Z';
 
@@ -31,6 +31,8 @@ test('validates a narrow moderator application and sourced moderator report', ()
   const report = { lat: 45.8, lng: 8.8, occurredAt: '2026-11-19T09:00:00.000Z', source: 'https://example.test/cronaca', category: 'theft' };
   assert.equal(validateModeratorReport(report, Date.parse(now)), null);
   assert.ok(validateModeratorReport({ ...report, source: 'http://example.test/cronaca' }, Date.parse(now)));
+  assert.equal(validateAdminReport({ ...report, source: '' }, Date.parse(now)), null);
+  assert.ok(validateAdminReport({ ...report, source: 'http://example.test/cronaca' }, Date.parse(now)));
 });
 
 test('approval, activation, session revocation, sourced pins and audit are all persistent', async () => {
@@ -67,11 +69,15 @@ test('approval, activation, session revocation, sourced pins and audit are all p
   assert.equal((await store.listModerationAudit({ targetType: 'report', targetId: verificationId }))[0].action, 'report_verified');
   assert.equal(await store.verifyReportAsAdmin({ reportId: id, country: 'IT', nickname: 'Punto Sicuro', createdAt: now }), true);
   assert.equal((await store.list()).find(report => report.id === id).verifiedByNickname, 'Punto Sicuro');
+  const officialId = await store.submitAdminReport({ lat: 45.82, lng: 8.82, occurredAt: '2026-11-19T09:10:00.000Z', createdAt: now, country: 'IT', municipality: 'Varese', province: 'Varese', notes: 'Punto inserito dall amministrazione.' });
+  const officialReport = (await store.list()).find(report => report.id === officialId);
+  assert.equal(officialReport.verifiedByNickname, 'Punto Sicuro');
+  assert.equal((await store.listModerationAudit({ targetType: 'report', targetId: officialId }))[0].action, 'report_verified');
   const scoped = await store.listReportsForModeration({ country: 'IT', scopeType: 'municipality', scopeValue: 'varese', page: 1, pageSize: 1 });
-  assert.equal(scoped.total, 2);
+  assert.equal(scoped.total, 3);
   assert.equal(scoped.reports.length, 1);
   assert.equal(await store.archiveReport({ reportId: id, moderatorId: moderator.id, country: 'IT', scopeType: 'municipality', scopeValue: 'varese', createdAt: now }), true);
-  assert.equal((await store.list()).length, 2);
+  assert.equal((await store.list()).length, 3);
   assert.equal((await store.listModerationAudit({ targetType: 'report', targetId: id }))[0].action, 'report_archived');
 
   assert.equal(await store.suspendModerator({ id: moderator.id, country: 'IT', createdAt: now }), true);
