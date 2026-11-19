@@ -8,8 +8,8 @@ import { after } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-export async function GET() {
-  const reports = await getReportStore().list();
+export async function GET(request) {
+  const reports = await getReportStore().list(clientHash(request));
   return Response.json(reports, { headers: { 'Cache-Control': 'no-store' } });
 }
 export async function POST(request) {

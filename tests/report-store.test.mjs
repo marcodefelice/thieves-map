@@ -46,8 +46,12 @@ test('community confirmations are unique per network and cannot confirm the auth
   const [row] = await store.list();
   assert.notEqual(row.lat, report.lat);
   assert.notEqual(row.lng, report.lng);
+  assert.equal((await store.list('author'))[0].sameNetwork, 1);
+  assert.equal((await store.list('other'))[0].sameNetwork, 0);
   assert.equal(await store.confirm({ reportId: row.id, clientHash: 'author', createdAt: now }), false);
   assert.equal(await store.confirm({ reportId: row.id, clientHash: 'other', createdAt: now }), true);
+  assert.equal((await store.list('other'))[0].alreadyConfirmed, 1);
+  assert.equal((await store.list('third'))[0].alreadyConfirmed, 0);
   assert.equal(await store.confirm({ reportId: row.id, clientHash: 'other', createdAt: now }), false);
   assert.equal(await store.confirm({ reportId: row.id, clientHash: 'third', createdAt: now }), true);
   assert.equal((await store.list())[0].confirmations, 2);

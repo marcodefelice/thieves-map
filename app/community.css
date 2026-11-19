@@ -103,3 +103,5 @@
 .marker.older,.latest-dot.older,.dot.yellow{background:#edc300}
 .marker.history,.latest-dot.history,.dot.gray{background:#78857e}
 .marker.degradation-marker,.latest-dot.degradation,.degradation-dot{background:#9b2ee8}
+
+.confirmation-summary{display:flex;flex-direction:column;gap:3px;margin-top:10px;padding:9px 11px;border:1px solid #cbded0;border-radius:6px;background:#edf5ee;color:#234c38}.confirmation-summary strong{font-size:13px}.confirmation-summary span{font-size:11px;line-height:1.4}.leaflet-popup-content p.confirmation-message{margin:8px 0 0;color:#536d5e;font-size:11px;line-height:1.4}
