@@ -43,6 +43,8 @@ test('keeps a closed, sourced and duplicate-free official-area catalogue', () =>
     assert.match(area.key, /^official-2026-/);
     assert.match(area.source, /^https:\/\/(?:prefettura\.interno\.gov\.it|www\.comune\.roma\.it)\//);
     assert.ok(Number.isFinite(area.lat) && Number.isFinite(area.lng));
+    assert.equal(area.country, 'IT');
+    assert.ok(area.municipality.length > 0 && area.province.length > 0);
     assert.ok(area.notes.length >= 40 && area.notes.length <= 500);
   }
 });
