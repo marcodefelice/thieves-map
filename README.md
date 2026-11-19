@@ -72,12 +72,13 @@ Create a Cloudflare Turnstile widget and allow the hostnames where the app runs,
 
 ### Moderator applications and private administration
 
-Visitors can submit a moderation application from the public collaboration form. Applications stay `pending`; no moderation privilege is granted until an administrator approves them. Approval sends a one-use activation link that expires after 48 hours. Moderators use password-backed, HTTP-only sessions; suspending a moderator deletes their sessions and is also checked on every protected request. Pins added by moderators require a public HTTPS source and retain the moderator nickname plus an audit trail. Archived reports disappear from the public map but remain in the database and audit log.
+Visitors can submit a moderation application from the public collaboration form. They choose either one Italian municipality or one Italian province, never the whole country; this scope is checked server-side when they list, publish, or archive reports. Applications stay `pending`; no moderation privilege is granted until an administrator approves them. Approval sends a one-use activation link that expires after 48 hours. Moderators use password-backed, HTTP-only sessions; suspending a moderator deletes their sessions and is also checked on every protected request. Pins added by moderators require a public HTTPS source and retain the moderator nickname plus an audit trail. Archived reports disappear from the public map but remain in the database and audit log.
 
-The administrator workspace is deliberately not linked anywhere in the public UI: open `/admin/moderators` directly. It still requires `ADMIN_API_TOKEN`; the URL alone never grants access. This workspace lists applications and all reports, and can approve, suspend, or archive them. Set these deployment secrets (never commit them):
+The administrator workspace is deliberately not linked anywhere in the public UI: open `/admin/moderators` directly. It still requires `ADMIN_API_TOKEN`; the URL alone never grants access. This workspace is paginated, lists only the configured admin country, and can approve, suspend, archive, or retrieve a report address on demand. Set these deployment secrets (never commit them):
 
 ```env
 ADMIN_API_TOKEN=a-long-random-admin-secret
+ADMIN_COUNTRY=IT
 SMTP_HOST=smtps.aruba.it
 SMTP_PORT=465
 SMTP_SECURE=true

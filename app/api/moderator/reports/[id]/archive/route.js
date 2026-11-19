@@ -10,6 +10,6 @@ export async function POST(request, { params }) {
   if (!moderator) return Response.json({ error: 'Non autorizzato.' }, { status: 401 });
   const { id } = await params;
   if (!/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(Number(id))) return Response.json({ error: 'Segnalazione non valida.' }, { status: 400 });
-  if (!(await getReportStore().archiveReport({ reportId: Number(id), moderatorId: moderator.id, createdAt: new Date().toISOString() }))) return Response.json({ error: 'Segnalazione già archiviata o non trovata.' }, { status: 409 });
+  if (!(await getReportStore().archiveReport({ reportId: Number(id), moderatorId: moderator.id, country: moderator.country, scopeType: moderator.scopeType, scopeValue: moderator.scopeValue, createdAt: new Date().toISOString() }))) return Response.json({ error: 'Segnalazione già archiviata, non trovata o fuori dal tuo ambito.' }, { status: 409 });
   return Response.json({ ok: true });
 }

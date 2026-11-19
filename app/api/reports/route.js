@@ -6,6 +6,7 @@ import { notifyNearby } from '../../../lib/push.mjs';
 import { verifyTurnstile } from '../../../lib/turnstile.mjs';
 import { after } from 'next/server';
 import { checkReportCountry } from '../../../lib/report-country.mjs';
+import { countryForLocation } from '../../../lib/countries.mjs';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -33,7 +34,7 @@ export async function POST(request) {
   }
   const hash = clientHash(request);
   const now = new Date().toISOString();
-  const inserted = await getReportStore().submit({ ...body, createdAt: now, clientHash: hash });
+  const inserted = await getReportStore().submit({ ...body, country: countryForLocation(body) || 'UN', createdAt: now, clientHash: hash });
   if (!inserted) return Response.json({ error: 'Limite di segnalazioni raggiunto. Riprova più tardi.' }, { status: 429 });
   after(async () => { try { await notifyNearby({ ...body, ...approximateLocation(body) }); } catch (error) { console.error('Push dispatch failed:', error.message); } });
   return Response.json({ ok: true }, { status: 201 });
