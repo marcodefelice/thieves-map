@@ -34,7 +34,17 @@ export async function PATCH(request) {
   if (!candidate) return Response.json({ error: 'La candidatura non è più in attesa.' }, { status: 409 });
   try {
     await sendModeratorActivation({ ...candidate, token });
-  } catch {
+  } catch (error) {
+    // Keep provider diagnostics in server logs only: the browser gets a
+    // generic message so SMTP details cannot be exposed to unauthenticated UI.
+    console.error('Moderator activation email failed', {
+      name: error instanceof Error ? error.name : 'UnknownError',
+      message: error instanceof Error ? error.message : String(error),
+      code: error?.code,
+      command: error?.command,
+      responseCode: error?.responseCode,
+      response: error?.response,
+    });
     return Response.json({ error: 'Email di attivazione non inviata. La candidatura resta in attesa; puoi riprovare.' }, { status: 502 });
   }
   if (!(await store.approveModerator({ id, country, tokenHash, createdAt: now }))) return Response.json({ error: 'Impossibile completare l’approvazione.' }, { status: 409 });
