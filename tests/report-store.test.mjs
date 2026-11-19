@@ -19,9 +19,9 @@ for (const [name, makeStore] of [
     const report = { lat: 41, lng: 12, occurredAt: now, createdAt: now, clientHash: 'client' };
     assert.equal(await store.submit(report), true);
     assert.equal(await store.submit({ ...report, clientHash: 'another-client' }), true);
-    for (let i = 0; i < 4; i++) assert.equal(await store.submit(report), true);
     assert.equal(await store.submit({ ...report, lat: 42 }), false);
-    assert.equal((await store.list()).length, 6);
+    assert.equal(await store.submit({ ...report, createdAt: '2026-11-18T12:15:00.000Z' }), true);
+    assert.equal((await store.list()).length, 3);
     store.close();
   });
 }
@@ -52,13 +52,15 @@ test('community confirmations are unique per network and cannot confirm the auth
   assert.equal(await store.confirm({ reportId: row.id, clientHash: 'other', createdAt: now }), true);
   assert.equal((await store.list('other'))[0].alreadyConfirmed, 1);
   assert.equal((await store.list('third'))[0].alreadyConfirmed, 0);
-  assert.equal(await store.confirm({ reportId: row.id, clientHash: 'other', createdAt: now }), false);
+  assert.equal(await store.confirm({ reportId: row.id, clientHash: 'other', createdAt: now, kind: 'dispute' }), false);
+  assert.equal(await store.confirm({ reportId: row.id, clientHash: 'disputer', createdAt: now, kind: 'dispute' }), true);
+  assert.equal((await store.list())[0].disputes, 1);
   assert.equal(await store.confirm({ reportId: row.id, clientHash: 'third', createdAt: now }), true);
   assert.equal((await store.list())[0].confirmations, 2);
   assert.equal(await store.confirm({ reportId: 999, clientHash: 'other', createdAt: now }), false);
   store.close();
 });
-test('only new urban decay reports expose precise coordinates; old rows remain approximate', async () => {
+test('new crime and urban decay reports expose precise coordinates; old rows remain approximate', async () => {
   const client = createClient({ url: 'file::memory:' });
   await client.execute("CREATE TABLE reports (id INTEGER PRIMARY KEY AUTOINCREMENT, lat REAL NOT NULL, lng REAL NOT NULL, occurred_at TEXT NOT NULL, created_at TEXT NOT NULL, client_hash TEXT NOT NULL, category TEXT NOT NULL DEFAULT 'theft', notes TEXT NOT NULL DEFAULT '')");
   const report = { lat: 45.6889287, lng: 8.7212361, occurredAt: now, createdAt: now };
@@ -73,8 +75,8 @@ test('only new urban decay reports expose precise coordinates; old rows remain a
   assert.equal(exact.locationPrecision,'exact');
   assert.equal(exact.lat,report.lat);
   assert.equal(exact.lng,report.lng);
-  assert.equal(crime.locationPrecision,'approximate');
-  assert.notEqual(crime.lat,report.lat);
+  assert.equal(crime.locationPrecision,'exact');
+  assert.equal(crime.lat,report.lat);
   const raw=await client.execute('SELECT lat, lng FROM reports WHERE id = 1');
   assert.equal(raw.rows[0].lat,report.lat);
   assert.equal(raw.rows[0].lng,report.lng);

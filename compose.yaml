@@ -10,6 +10,7 @@ services:
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:3000}
       IP_HASH_SALT: ${IP_HASH_SALT:-change-this-for-production}
       TRUST_PROXY: ${TRUST_PROXY:-0}
+      TRUST_COUNTRY_PROXY: ${TRUST_COUNTRY_PROXY:-0}
       GEOCODER_USER_AGENT: ${GEOCODER_USER_AGENT:-ThievesMap/1.0 (self-hosted map)}
       TURSO_DATABASE_URL: ${TURSO_DATABASE_URL:-}
       TURSO_AUTH_TOKEN: ${TURSO_AUTH_TOKEN:-}

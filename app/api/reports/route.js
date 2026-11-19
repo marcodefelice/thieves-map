@@ -5,6 +5,7 @@ import { validateReport } from '../../../lib/validation.mjs';
 import { notifyNearby } from '../../../lib/push.mjs';
 import { verifyTurnstile } from '../../../lib/turnstile.mjs';
 import { after } from 'next/server';
+import { checkReportCountry } from '../../../lib/report-country.mjs';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -19,6 +20,8 @@ export async function POST(request) {
   try { body = await request.json(); } catch { return Response.json({ error: 'Dati non validi.' }, { status: 400 }); }
   const error = validateReport(body);
   if (error) return Response.json({ error }, { status: 400 });
+  const countryError = checkReportCountry(request, body);
+  if (countryError) return Response.json({ error: 'Impossibile verificare il Paese della segnalazione.', code: countryError }, { status: 403 });
   const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
   const turnstileSiteKey = process.env.TURNSTILE_SITE_KEY;
   const turnstileRequired = Boolean(process.env.VERCEL) || Boolean(turnstileSecret) || Boolean(turnstileSiteKey);
