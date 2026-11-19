@@ -2,10 +2,25 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createClient } from '@libsql/client';
 import { createReportStore } from '../lib/db.mjs';
-import { hashPassword, hashToken, verifyPassword } from '../lib/moderator-auth.mjs';
+import { currentModerator, hashPassword, hashToken, verifyPassword } from '../lib/moderator-auth.mjs';
 import { validateModeratorApplication, validateModeratorReport } from '../lib/validation.mjs';
 
 const now = '2026-11-19T10:00:00.000Z';
+
+test('uses the session hash when loading the current moderator', async () => {
+  const previousStore = globalThis.__reportStore;
+  let received;
+  globalThis.__reportStore = { moderatorForSession: async value => { received = value; return { id: 7, nickname: 'Anna.Map' }; } };
+  try {
+    const moderator = await currentModerator(new Request('https://example.test/api/moderator/me', { headers: { cookie: 'thieves_map_moderator=session-token' } }));
+    assert.equal(moderator.nickname, 'Anna.Map');
+    assert.equal(received.sessionHash, hashToken('session-token'));
+    assert.equal(typeof received.now, 'string');
+  } finally {
+    if (previousStore === undefined) delete globalThis.__reportStore;
+    else globalThis.__reportStore = previousStore;
+  }
+});
 
 test('validates a narrow moderator application and sourced moderator report', () => {
   const application = { nickname: 'Anna.Map', email: 'anna@example.test', scopeType: 'municipality', area: 'Varese', address: 'Varese centro', note: 'Conosco bene la zona e voglio contribuire in modo responsabile.' };
