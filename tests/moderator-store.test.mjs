@@ -37,7 +37,7 @@ test('validates a narrow moderator application and sourced moderator report', ()
 });
 
 test('keeps a closed, sourced and duplicate-free official-area catalogue', () => {
-  assert.equal(officialAreas.length, 31);
+  assert.equal(officialAreas.length, 58);
   assert.equal(new Set(officialAreas.map(area => area.key)).size, officialAreas.length);
   for (const area of officialAreas) {
     assert.match(area.key, /^official-2026-/);
