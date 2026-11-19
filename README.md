@@ -70,6 +70,24 @@ IP geolocation is approximate and can be wrong, especially with VPNs, mobile net
 
 Create a Cloudflare Turnstile widget and allow the hostnames where the app runs, such as `thievesmap.cloud` and `localhost` for local testing. Set its site key as `TURNSTILE_SITE_KEY` and its secret as `TURNSTILE_SECRET_KEY` in Vercel for the environments you deploy. The site key is public and is passed to the browser; never commit or expose the secret. Redeploy after setting the variables. Vercel report submissions fail closed if either key is missing; local development can run without the widget when both are unset. The API validates each token with Cloudflare before saving a report, while retaining the existing report rate limit.
 
+### Moderator applications and private administration
+
+Visitors can submit a moderation application from the public collaboration form. Applications stay `pending`; no moderation privilege is granted until an administrator approves them. Approval sends a one-use activation link that expires after 48 hours. Moderators use password-backed, HTTP-only sessions; suspending a moderator deletes their sessions and is also checked on every protected request. Pins added by moderators require a public HTTPS source and retain the moderator nickname plus an audit trail. Archived reports disappear from the public map but remain in the database and audit log.
+
+The administrator workspace is deliberately not linked anywhere in the public UI: open `/admin/moderators` directly. It still requires `ADMIN_API_TOKEN`; the URL alone never grants access. This workspace lists applications and all reports, and can approve, suspend, or archive them. Set these deployment secrets (never commit them):
+
+```env
+ADMIN_API_TOKEN=a-long-random-admin-secret
+SMTP_HOST=smtps.aruba.it
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=moderatori@tuodominio.it
+SMTP_PASSWORD=la-password-della-casella
+SMTP_FROM=Punto Sicuro <moderatori@tuodominio.it>
+```
+
+`PUBLIC_ORIGIN` must already be the public HTTPS URL so activation emails have a safe destination. Approval is intentionally blocked if the SMTP configuration is missing or sending fails; this prevents activating an account without a secure delivery path. The defaults above use Aruba's encrypted SMTP endpoint; use the exact mailbox credentials supplied by Aruba and never commit the password.
+
 ### Installable app and push notifications
 
 Thieves Map can be installed from supported browsers. On iPhone and iPad, use Share → Add to Home Screen and open the installed app before enabling notifications. HTTPS is required outside localhost. The app and maps still require an internet connection.

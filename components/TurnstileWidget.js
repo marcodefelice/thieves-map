@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 const SCRIPT_ID = 'cloudflare-turnstile-api';
 
-export default function TurnstileWidget({ siteKey, onToken, labels }) {
+export default function TurnstileWidget({ siteKey, onToken, labels, action = 'report' }) {
   const container = useRef(null);
   const widgetId = useRef(null);
   const tokenCallback = useRef(onToken);
@@ -23,7 +23,7 @@ export default function TurnstileWidget({ siteKey, onToken, labels }) {
       try {
         widgetId.current = window.turnstile.render(container.current, {
           sitekey: siteKey,
-          action: 'report',
+          action,
           theme: 'auto',
           callback: token => { tokenCallback.current(token); setStatus('ready'); },
           'expired-callback': () => { tokenCallback.current(''); setStatus('expired'); },
@@ -59,7 +59,7 @@ export default function TurnstileWidget({ siteKey, onToken, labels }) {
       script?.removeEventListener('load', render);
       script?.removeEventListener('error', handleError);
     };
-  }, [siteKey]);
+  }, [siteKey, action]);
 
   const message = status === 'loading' ? labels.loading : status === 'expired' ? labels.expired : status === 'error' ? labels.error : '';
   return <div className="turnstile-field">
