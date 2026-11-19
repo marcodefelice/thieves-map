@@ -14,7 +14,9 @@ function PickLocation({active,onPick}) {
  useEffect(()=>{map.getContainer().classList.toggle('map-picking',active);return()=>map.getContainer().classList.remove('map-picking');},[map,active]);
  return null;
 }
-function icon(status,category,confirmed=true){const person=['crime','antisocial'].includes(category)?'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="3"/><path d="M6 19c0-4 2-6 6-6s6 2 6 6"/></svg>':'';return L.divIcon({className:'custom-marker',html:`<span class="marker ${status} ${person?'person-marker':''} ${category==='degradation'?'degradation-marker':''} ${confirmed?'':'unconfirmed-marker'}">${person}</span>`,iconSize:[32,32],iconAnchor:[16,16]})}
+// Reuse icons so React updates do not replace marker HTML or restart its pulse.
+const markerIcons = new globalThis.Map();
+function icon(status,category,confirmed=true){const key=`${status}:${category}:${confirmed}`;if(markerIcons.has(key))return markerIcons.get(key);const person=['crime','antisocial'].includes(category)?'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="3"/><path d="M6 19c0-4 2-6 6-6s6 2 6 6"/></svg>':'';const result=L.divIcon({className:'custom-marker',html:`<span class="marker ${status} ${person?'person-marker':''} ${category==='degradation'?'degradation-marker':''} ${confirmed?'':'unconfirmed-marker'}">${person}</span>`,iconSize:[32,32],iconAnchor:[16,16]});markerIcons.set(key,result);return result;}
 const userLocationIcon = L.divIcon({className:'user-location-icon',html:'<span class="user-location-dot"></span>',iconSize:[24,24],iconAnchor:[12,12]});
 function ExactAddress({report,labels}) {
  const [address,setAddress]=useState(null), [loading,setLoading]=useState(true);

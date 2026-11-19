@@ -3,9 +3,9 @@ import './language.css';
 import './recent-reports.css';
 import './pwa.css';
 import './map-ui.css';
-import './mobile-viewport.css';
 import './community.css';
 import 'leaflet/dist/leaflet.css';
+import './mobile-viewport.css';
 const title = 'Punto Sicuro — Mappa delle segnalazioni';
 const description = 'Una mappa condivisa delle segnalazioni di furto, delinquenza e degrado.';
 export const metadata = {
