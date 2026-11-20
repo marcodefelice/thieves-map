@@ -104,6 +104,36 @@ test('cron configuration fails closed for paid models and missing credentials', 
   assert.throws(() => rssConfig({ ...env, RSS_LLM_ENDPOINT: 'https://other.test' }, { freeOnly: true }));
 });
 
+test('Google News searches are separated by category and reject unknown categories', async () => {
+  const { googleNewsFeeds } = await import('../lib/rss-cron.mjs');
+  assert.equal(googleNewsFeeds().length, 3);
+  const theft = new URL(googleNewsFeeds('theft')[0]);
+  assert.equal(theft.hostname, 'news.google.com');
+  assert.match(theft.searchParams.get('q'), /furto/);
+  assert.match(theft.searchParams.get('q'), /when:2d/);
+  assert.match(new URL(googleNewsFeeds('crime')[0]).searchParams.get('q'), /rapina/);
+  assert.match(new URL(googleNewsFeeds('degradation')[0]).searchParams.get('q'), /vandalismo/);
+  assert.throws(() => googleNewsFeeds('unknown'));
+});
+
+test('concurrent workers respect the per-run AI attempt limit', async () => {
+  const store = createReportStore(createClient({ url: 'file::memory:' }));
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  const xml = `<rss><channel>${Array.from({ length: 12 }, (_, i) => `<item><title>Rapina ${i}</title><link>https://news.test/${i}</link><pubDate>${new Date().toUTCString()}</pubDate></item>`).join('')}</channel></rss>`;
+  globalThis.fetch = async url => {
+    if (String(url) === 'https://feed.test/rss') return new Response(xml);
+    if (String(url) === 'https://llm.test/chat') { calls++; return Response.json({ choices: [{ message: { content: '{}' } }] }); }
+    throw new Error('Unexpected request');
+  };
+  try {
+    const result = await fetchRss({ store, config: { feeds: ['https://feed.test/rss'], endpoint: 'https://llm.test/chat', model: 'test', geocoder: 'https://geo.test/search', userAgent: 'Test' }, maxAttempts: 3, timing: { aiIntervalMs: 0, geocodeIntervalMs: 0, workers: 6 } });
+    assert.equal(result.attempts, 3);
+    assert.equal(calls, 3);
+    assert.equal(result.attemptLimited, true);
+  } finally { globalThis.fetch = originalFetch; store.close(); }
+});
+
 test('cron rejects absent or invalid secrets before reading configuration or accessing the store', async () => {
   const { handleRssCron } = await import('../lib/rss-cron.mjs');
   const previous = process.env.CRON_SECRET;
