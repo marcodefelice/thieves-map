@@ -117,5 +117,10 @@
 .rss-draft { padding: 1rem 0; border-top: 1px solid #d6d6d6; }
 .rss-draft form { display: grid; gap: .75rem; margin-top: 1rem; }
 .rss-draft label:not(.check-label) { display: grid; gap: .35rem; }
-.leaflet-popup-content .report-whatsapp{display:block;width:max-content;max-width:100%;margin-top:10px;padding:8px 10px;border-radius:4px;background:#1f7950;color:#fff;font-size:11px;font-weight:700;text-decoration:none}
-.leaflet-popup-content .report-whatsapp:hover,.leaflet-popup-content .report-whatsapp:focus-visible{background:#175c3d;color:#fff}
+.report-share{margin-top:10px}
+.report-share-trigger{max-width:100%;padding:8px 10px;border:0;border-radius:4px;background:#315747;color:#fff;font-size:11px;font-weight:700}
+.report-share-trigger:hover,.report-share-trigger:focus-visible{background:#254638}
+.report-share-options{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px}
+.leaflet-popup-content .report-share-options a,.report-share-options button{padding:3px 0;border:0;background:none;color:#315747;font-size:11px;text-decoration:underline}
+.leaflet-popup-content .report-share-options p{width:100%;margin:2px 0;color:#536d5e;font-size:11px}
+.report-share-options input{width:100%;font-size:11px}
