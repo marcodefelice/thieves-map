@@ -26,6 +26,23 @@ for (const [name, makeStore] of [
   });
 }
 test.after(() => rmSync(dir, { recursive: true, force: true }));
+test('uses the stored country for exact coastal locations that cannot be matched', async () => {
+  const client = createClient({ url: 'file::memory:' });
+  const store = createReportStore(client);
+  for (const [index, [lat, lng]] of [[40.8279, 14.22], [40.8235, 14.2902], [40.8333, 14.2393]].entries()) {
+    await store.submit({ lat, lng, occurredAt: now, createdAt: now, clientHash: `coast-${index}`, country: 'IT', category: 'degradation' });
+  }
+  await store.submit({ lat: 0, lng: -140, occurredAt: now, createdAt: now, clientHash: 'unknown', country: 'UN', category: 'crime' });
+  await store.submit({ lat: 0, lng: -140, occurredAt: now, createdAt: now, clientHash: 'approximate', country: 'IT', category: 'theft' });
+  await store.submit({ lat: 40.7128, lng: -74.006, occurredAt: now, createdAt: now, clientHash: 'matched', country: 'IT', category: 'crime' });
+  const rows = await store.list();
+  const country = id => rows.find(row => Number(row.id) === id).country;
+  assert.deepEqual([1, 2, 3].map(country), ['IT', 'IT', 'IT']);
+  assert.equal(country(4), null);
+  assert.equal(country(5), null);
+  assert.equal(country(6), 'US');
+  store.close();
+});
 test('upgrades existing reports without losing data and saves category and notes', async () => {
   const client = createClient({ url: 'file::memory:' });
   await client.execute("CREATE TABLE reports (id INTEGER PRIMARY KEY AUTOINCREMENT, lat REAL NOT NULL, lng REAL NOT NULL, occurred_at TEXT NOT NULL, created_at TEXT NOT NULL, client_hash TEXT NOT NULL)");
