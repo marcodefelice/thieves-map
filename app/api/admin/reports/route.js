@@ -1,3 +1,5 @@
+import { after } from 'next/server';
+import { dispatchTelegramReport } from '../../../../lib/telegram.mjs';
 import { allowedBrowserOrigin } from '../../../../lib/client.mjs';
 import { getReportStore } from '../../../../lib/db.mjs';
 import { adminCountry, validAdminToken } from '../../../../lib/moderator-auth.mjs';
@@ -27,5 +29,6 @@ export async function POST(request) {
   catch { return Response.json({ error: 'Impossibile verificare l’indirizzo. Riprova più tardi.' }, { status: 503 }); }
   if (place.country !== adminCountry()) return Response.json({ error: 'Puoi inserire soltanto punti in Italia.' }, { status: 403 });
   const id = await getReportStore().submitAdminReport({ ...body, country: place.country, municipality: place.municipality, province: place.province, nickname: 'Punto Sicuro', createdAt: new Date().toISOString() });
+  after(() => dispatchTelegramReport(id));
   return Response.json({ ok: true, id }, { status: 201 });
 }

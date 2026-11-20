@@ -1,3 +1,4 @@
+import { dispatchTelegramReport } from '../../../../lib/telegram.mjs';
 import { allowedBrowserOrigin } from '../../../../lib/client.mjs';
 import { getReportStore } from '../../../../lib/db.mjs';
 import { currentModerator } from '../../../../lib/moderator-auth.mjs';
@@ -25,6 +26,6 @@ export async function POST(request) {
   const scopeValue = moderator.scopeType === 'province' ? place.province : place.municipality;
   if (place.country !== moderator.country || !scopeValue || scopeValue !== moderator.scopeValue) return Response.json({ error: `Puoi pubblicare soltanto nel tuo ${moderator.scopeType === 'province' ? 'ambito provinciale' : 'Comune'} assegnato.` }, { status: 403 });
   const id = await getReportStore().submitModerated({ ...body, recordKind: 'report', moderatorId: moderator.id, verifiedByNickname: moderator.nickname, country: place.country, municipality: place.municipality, province: place.province, createdAt: new Date().toISOString() });
-  after(async () => { try { await notifyNearby({ ...body, ...approximateLocation(body) }); } catch (error) { console.error('Push dispatch failed:', error.message); } });
+  after(async () => { await Promise.all([dispatchTelegramReport(id), notifyNearby({ ...body, ...approximateLocation(body) }).catch(error => console.error('Push dispatch failed:', error.message))]); });
   return Response.json({ ok: true, id }, { status: 201 });
 }

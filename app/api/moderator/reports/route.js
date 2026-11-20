@@ -1,3 +1,5 @@
+import { after } from 'next/server';
+import { dispatchTelegramReport } from '../../../../lib/telegram.mjs';
 import { allowedBrowserOrigin } from '../../../../lib/client.mjs';
 import { getReportStore } from '../../../../lib/db.mjs';
 import { currentModerator } from '../../../../lib/moderator-auth.mjs';
@@ -29,5 +31,6 @@ export async function POST(request) {
   const scopeValue = moderator.scopeType === 'province' ? place.province : place.municipality;
   if (place.country !== moderator.country || !scopeValue || scopeValue !== moderator.scopeValue) return Response.json({ error: `Puoi pubblicare soltanto nel tuo ${moderator.scopeType === 'province' ? 'ambito provinciale' : 'Comune'} assegnato.` }, { status: 403 });
   const id = await getReportStore().submitModerated({ ...body, moderatorId: moderator.id, country: place.country, municipality: place.municipality, province: place.province, createdAt: new Date().toISOString() });
+  after(() => dispatchTelegramReport(id));
   return Response.json({ ok: true, id }, { status: 201 });
 }

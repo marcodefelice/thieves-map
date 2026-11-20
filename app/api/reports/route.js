@@ -1,3 +1,4 @@
+import { dispatchTelegramReport } from '../../../lib/telegram.mjs';
 import { clientHash, allowedOrigin } from '../../../lib/client.mjs';
 import { approximateLocation } from '../../../lib/location.mjs';
 import { getReportStore } from '../../../lib/db.mjs';
@@ -34,8 +35,8 @@ export async function POST(request) {
   }
   const hash = clientHash(request);
   const now = new Date().toISOString();
-  const inserted = await getReportStore().submit({ ...body, country: countryForLocation(body) || 'UN', createdAt: now, clientHash: hash });
+  const inserted = await getReportStore().submit({ ...body, returnId: true, country: countryForLocation(body) || 'UN', createdAt: now, clientHash: hash });
   if (!inserted) return Response.json({ error: 'Limite di segnalazioni raggiunto. Riprova più tardi.' }, { status: 429 });
-  after(async () => { try { await notifyNearby({ ...body, ...approximateLocation(body) }); } catch (error) { console.error('Push dispatch failed:', error.message); } });
+  after(async () => { await Promise.all([dispatchTelegramReport(inserted), notifyNearby({ ...body, ...approximateLocation(body) }).catch(error => console.error('Push dispatch failed:', error.message))]); });
   return Response.json({ ok: true }, { status: 201 });
 }

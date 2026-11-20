@@ -164,3 +164,48 @@ Each run stops starting work after roughly 165 seconds to fit the function's 240
 #### Other hosts
 
 The same worker can be run from a checkout with Node.js 22+ and `npm ci`: `node --env-file=/path/to/rss-worker.env scripts/fetch-rss.mjs`. Configure the same variables as above plus `RSS_FEEDS` (a comma-separated list of feed URLs), and use the same persistent SQLite `DATA_DIR` or Turso credentials as the app. To schedule it, use your host's cron or a separate worker. The production Docker web image does not include the worker. The local worker accepts other OpenAI-compatible LLM endpoints, but still enforces the shared RSS budget; use a geocoder that permits scheduled batch queries. Public Nominatim is unsuitable for systematic nationwide ingestion.
+
+### Telegram channel and public RSS feed
+
+The public RSS 2.0 feed is available at `/feed.xml` and contains up to 100 recently verified, active, shareable reports. Each item links to its map pin. Archived reports and reports that have left the public map history disappear from the feed; readers may retain their own copies. The feed and Telegram messages include public notes; Telegram also labels unverified community reports.
+
+To enable Telegram, create a bot with BotFather, add it as an administrator of the channel with permission to post, and configure these server-side variables in Vercel or Docker Compose:
+
+```env
+PUBLIC_ORIGIN=https://thievesmap.cloud
+TELEGRAM_BOT_TOKEN=your-bot-token
+TELEGRAM_CHAT_ID=@your_channel_username
+# Optional: only publish reports in this municipality
+TELEGRAM_MUNICIPALITY=
+```
+
+For a private channel, use its numeric chat ID instead of a username. Keep the bot token secret; never place it in client-side code. With no municipality filter, the channel receives reports from all areas. When a filter is configured, matching uses the municipality resolved from the public map coordinates; a report is skipped if its area cannot be matched. This is a single-channel filter, not automatic routing to multiple city channels.
+
+The app posts after successful publication and posts an update when a moderator verifies an existing report. Delivery is best effort: Telegram or geocoder failures are logged, do not block report publication, and are not automatically retried. Check deployment logs and the channel after configuration. The zone is a municipality or broader area, not a precise street address. The linked map preserves the report's existing location precision.
+
+### Bluesky cross-posting
+
+**On Vercel:** the scheduled endpoint `/api/cron/bluesky` runs daily at 07:00 UTC and keeps its state in the same persistent Turso database as reports. Set `BLUESKY_IDENTIFIER`, `BLUESKY_APP_PASSWORD`, `CRON_SECRET`, `PUBLIC_ORIGIN`, and the existing Turso credentials in Vercel Production environment variables; `BLUESKY_STATE_FILE` is not needed. The first successful cron run records all existing verified reports as the baseline and does not post; later runs publish up to 10 new verified, active, shareable reports each. Failed items remain pending for a later run, and a database lease prevents overlapping jobs. The daily schedule works on Vercel Hobby; actual timing can vary. A newly approved pin can wait until the next run, or longer if there is a backlog. Existing posts are not deleted automatically when reports are archived.
+
+**On a separate persistent host:**
+
+The public `/feed.xml` contains verified reports only, ordered by verification time, so a newly verified older pin appears as a new item. Set `PUBLIC_ORIGIN` to the actual canonical site origin (for example, `https://www.thievesmap.cloud` if that hostname is configured) so the feed links and social previews use the correct domain. Configuring a hostname in the application does not provision DNS or hosting for it.
+
+Run the optional Bluesky worker on a persistent host with Node.js 22+ and this repository's `npm ci` dependencies. The production Docker web image does not include the worker. Create a Bluesky app password in the account's settings, then put these variables in a private environment file (never commit it):
+
+```env
+PUBLIC_ORIGIN=https://www.thievesmap.cloud
+BLUESKY_IDENTIFIER=your-account.bsky.social
+BLUESKY_APP_PASSWORD=your-app-password
+BLUESKY_STATE_FILE=/absolute/private/path/bluesky-state.json
+```
+
+The directory for the state file must already exist and be writable only by the worker. Run `node --env-file=/absolute/private/path/bluesky.env scripts/bluesky-post.mjs` once to initialize it; the first run records existing feed items without posting them. Then schedule that same command with cron, for example every 5 minutes (replace the paths with the actual paths on your host):
+
+```cron
+*/5 * * * * cd /absolute/path/thieves-map && /absolute/path/to/node --env-file=/absolute/private/path/bluesky.env scripts/bluesky-post.mjs >> /absolute/private/path/bluesky.log 2>&1
+```
+
+Later runs publish up to 10 new verified reports per run, oldest first, with a clickable map link. The state file and lock must be shared by all worker runs and retained across restarts. If a process is killed and leaves a `.lock` file, verify no worker is running and remove the stale lock. The last 100 approved, currently shareable reports are available in the feed: if more than 100 arrive between successful polls, older items may be missed. Archived or expired reports disappear from the feed, but previously published social posts and RSS readers' copies are not automatically removed.
+
+Posting failures produce a nonzero exit code and are retried on the next run. A deterministic Bluesky record key means a retry targets the same post if the prior request succeeded but its response was lost. Do not delete the state file unless you intend to establish a new baseline, and monitor the cron logs for errors.

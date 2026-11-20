@@ -9,10 +9,11 @@ import './mobile-viewport.css';
 const title = 'Punto Sicuro — Mappa delle segnalazioni';
 const description = 'Una mappa condivisa delle segnalazioni di furto, delinquenza e degrado.';
 export const metadata = {
-  metadataBase: new URL('https://thievesmap.cloud'),
+  metadataBase: new URL(process.env.PUBLIC_ORIGIN || 'https://thievesmap.cloud'),
   title,
   description,
   manifest: '/manifest.webmanifest',
+  alternates: { types: { 'application/rss+xml': '/feed.xml' } },
   appleWebApp: { capable: true, title: 'Thieves Map', statusBarStyle: 'default' },
   icons: {
     icon: [
