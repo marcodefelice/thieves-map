@@ -49,6 +49,8 @@ test('RSS parser accepts RSS and Atom, and rejects external entities', () => {
   assert.equal(atom[0].link, 'https://example.test/b');
   assert.throws(() => parseRss(Buffer.from('<!DOCTYPE rss [<!ENTITY x SYSTEM "file:///etc/passwd">]><rss>&x;</rss>')));
   assert.throws(() => parseRss(Buffer.from('<rss><item></rss>')));
+  assert.throws(() => parseRss(Buffer.from('<html><body>Homepage</body></html>')));
+  assert.equal(parseRss(Buffer.from('  \n<?xml version="1.0"?><rss><channel><item><title>Furto</title></item></channel></rss>'))[0].title, 'Furto');
 });
 
 test('fetcher imports a filtered article without treating publication as event time', async () => {
@@ -143,7 +145,7 @@ test('feed and article failures do not prevent other feeds being scanned', async
   };
   console.error = (...values) => errors.push(values.join(' '));
   try {
-    const result = await fetchRss({ store, config: { feeds: configuredFeeds, endpoint: 'https://llm.test/chat', model: 'test', geocoder: 'https://geo.test/search', userAgent: 'Test' } });
+    const result = await fetchRss({ store, config: { feeds: configuredFeeds, endpoint: 'https://llm.test/chat', model: 'test', geocoder: 'https://geo.test/search', userAgent: 'Test' }, timing: { aiIntervalMs: 0, geocodeIntervalMs: 0, workers: 1 } });
     assert.deepEqual(calls, ['Furto A1', 'Furto B1', 'Furto A2']);
     assert.equal(result.added, 2);
     assert.equal(result.failures, 2);
@@ -151,4 +153,61 @@ test('feed and article failures do not prevent other feeds being scanned', async
     assert.ok(errors.some(message => message.includes('a.test, AI') && message.includes('timeout')));
     assert.ok(errors.some(message => message.includes('broken.test')));
   } finally { globalThis.fetch = originalFetch; console.error = originalError; store.close(); }
+});
+
+
+test('parallel AI timeouts do not block other articles or consume quota twice', async () => {
+  const store = createReportStore(createClient({ url: 'file::memory:' }));
+  const originalFetch = globalThis.fetch;
+  const originalError = console.error;
+  let active = 0, peak = 0;
+  const xml = `<rss><channel>${[1, 2, 3].map(i => `<item><title>Furto ${i}</title><link>https://news.test/${i}</link><pubDate>${new Date().toUTCString()}</pubDate></item>`).join('')}</channel></rss>`;
+  globalThis.fetch = async (url, options = {}) => {
+    url = String(url);
+    if (url === 'https://feed.test/rss') return new Response(xml);
+    if (url === 'https://llm.test/chat') {
+      active++; peak = Math.max(peak, active);
+      await new Promise(resolve => setTimeout(resolve, 25));
+      active--;
+      const title = JSON.parse(JSON.parse(options.body).messages[1].content).titolo;
+      if (title === 'Furto 1') throw new DOMException('timeout', 'TimeoutError');
+      return Response.json({ choices: [{ message: { content: JSON.stringify({ categoria: 'theft', 'città': 'Varese', via_o_zona: 'Centro', riassunto_neutro: 'Notizia di cronaca.', data_evento: null }) } }] });
+    }
+    if (url.startsWith('https://geo.test/search?')) return Response.json([{ lat: '45.818', lon: '8.825', address: { country_code: 'it', city: 'Varese', province: 'Varese' } }]);
+    throw new Error('Unexpected request');
+  };
+  console.error = () => {};
+  try {
+    const config = { feeds: ['https://feed.test/rss'], endpoint: 'https://llm.test/chat', model: 'test', geocoder: 'https://geo.test/search', userAgent: 'Test' };
+    const timing = { aiIntervalMs: 0, geocodeIntervalMs: 0, workers: 3 };
+    const result = await fetchRss({ store, config, timing });
+    assert.equal(peak, 3);
+    assert.equal(result.attempts, 3);
+    assert.equal(result.failures, 1);
+    assert.equal(result.added, 2);
+    const retry = await fetchRss({ store, config, timing });
+    assert.equal(retry.attempts, 0);
+  } finally { globalThis.fetch = originalFetch; console.error = originalError; store.close(); }
+});
+
+test('concurrent workers pace AI requests and preserve the quota reservation', async () => {
+  const store = createReportStore(createClient({ url: 'file::memory:' }));
+  const originalFetch = globalThis.fetch;
+  const times = [];
+  const xml = `<rss><channel>${[1, 2, 3].map(i => `<item><title>Furto ${i}</title><link>https://news.test/${i}</link><pubDate>${new Date().toUTCString()}</pubDate></item>`).join('')}</channel></rss>`;
+  globalThis.fetch = async (url) => {
+    if (String(url) === 'https://feed.test/rss') return new Response(xml);
+    if (String(url) === 'https://llm.test/chat') {
+      times.push(Date.now());
+      return Response.json({ choices: [{ message: { content: '{}' } }] });
+    }
+    throw new Error('Unexpected request');
+  };
+  try {
+    const result = await fetchRss({ store, config: { feeds: ['https://feed.test/rss'], endpoint: 'https://llm.test/chat', model: 'test', geocoder: 'https://geo.test/search', userAgent: 'Test' }, timing: { aiIntervalMs: 25, geocodeIntervalMs: 0, workers: 3 } });
+    assert.equal(result.attempts, 3);
+    assert.equal(result.incompleteExtraction, 3);
+    assert.ok(times[1] - times[0] >= 15);
+    assert.ok(times[2] - times[1] >= 15);
+  } finally { globalThis.fetch = originalFetch; store.close(); }
 });
