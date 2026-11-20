@@ -112,3 +112,8 @@
 .report-details label.moderator-verification{display:flex;align-items:flex-start;gap:8px;margin:16px 0;color:#315747;font-size:11px;letter-spacing:0;line-height:1.5}
 .moderator-verification input{flex:none;margin:2px 0 0}
 .account-home-link{display:block;width:fit-content;margin:0 auto 20px;color:#315747;font-size:13px;font-weight:700}
+
+.rss-queue { margin: 1.5rem 0; }
+.rss-draft { padding: 1rem 0; border-top: 1px solid #d6d6d6; }
+.rss-draft form { display: grid; gap: .75rem; margin-top: 1rem; }
+.rss-draft label:not(.check-label) { display: grid; gap: .35rem; }

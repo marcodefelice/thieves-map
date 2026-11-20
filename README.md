@@ -130,3 +130,38 @@ New theft reports are rounded to a fixed grid before storage and returned at app
 Existing reports, including older urban decay reports, remain approximate on the public map and retain their existing stored coordinates; the original exact location cannot be recovered from already-rounded coordinates. Approximation is not a guarantee of anonymity: precise locations may still appear in old database rows, past exports, logs, notes, geocoding providers, or caches. Notes are public and are not automatically screened. Do not include names, exact addresses, number plates, or security details.
 
 New crime and urban decay reports show the selected precise point; crime reports require the submitter to affirm that the point is public and does not identify individuals, residences or businesses. Theft and legacy reports remain approximate. An optional indirect/news label is self-declared. Confirmations and disputes are limited to one vote per network per report and do not remove reports. Network-based limits can affect multiple people sharing an IP and are not proof of identity.
+
+### RSS news review queue
+
+RSS articles are never published automatically. The fetcher filters RSS/Atom titles and descriptions, extracts suggested details with an LLM and geocodes the suggested location. Only results with a matching Italian municipality, province and location enter the `draft_rss` queue. Missing or ambiguous locations are skipped; publication time is never substituted for the event date. LLMs can make mistakes, and the feed title and excerpt are sent to the configured provider.
+
+Moderators see drafts for their assigned province or municipality; the administrator sees all drafts in the configured admin country. Both can inspect the source and map point, correct the data, then confirm and publish or discard. The server checks access to both the draft and the selected point. Approval and rejection are audited and approval happens at most once. Published pins use the existing location precision and map age rules; approval does not send a push notification.
+
+#### Vercel configuration
+
+`vercel.json` registers the protected `/api/cron/rss` endpoint once a day at 08:00 UTC on the production deployment. This schedule works on the free Hobby plan, whose invocation can be delayed by up to an hour. Vercel only runs cron jobs on production. A more frequent schedule (for example `0 */2 * * *`) requires a plan that permits it, or a separately scheduled worker. Changes to schedules or environment variables require a new deployment.
+
+In Vercel Project Settings → Environment Variables, set these for **Production** (never commit or share secrets):
+
+```env
+RSS_FEEDS=https://example.org/local/rss.xml,https://example.org/other/rss.xml
+RSS_LLM_ENDPOINT=https://openrouter.ai/api/v1/chat/completions
+RSS_LLM_MODEL=openrouter/free
+RSS_LLM_API_KEY=your-openrouter-key
+RSS_GEOCODER_URL=https://us1.locationiq.com/v1/search
+RSS_GEOCODER_API_KEY=your-locationiq-token
+GEOCODER_USER_AGENT=PuntoSicuro/1.0 (contact: admin@example.com)
+CRON_SECRET=replace-with-a-long-random-secret
+TURSO_DATABASE_URL=libsql://your-database.turso.io
+TURSO_AUTH_TOKEN=your-database-token
+```
+
+Replace example feed URLs and contact information with real ones. Generate `CRON_SECRET` with `openssl rand -hex 32` and save the result securely; Vercel sends it to the endpoint automatically. Turso must be the **same database as the live app**. The cron fails closed if its secret or configuration is missing, or if the LLM endpoint is not OpenRouter with `openrouter/free` or a `:free` model. Never point the public scheduler at a paid model. Keep the API keys secret.
+
+The shared database atomically reserves each AI request **before** it is sent, counting errors and timeouts. It permits at most 40 requests per rolling 24 hours and 15 per rolling minute, leaving a margin under OpenRouter's published free-tier limits. Attempts for one URL are separated by at least 24 hours and limited to two in 30 days; already imported sources are never retried. Concurrent jobs share a lock and budget. The fetcher makes at most one geocoder request per AI attempt, so this job performs at most 40 geocoder calls per rolling 24 hours and spaces them by at least 1.1 seconds. Quotas apply only to this job and this database: other apps, manually executed requests, separate databases or other projects sharing your provider accounts consume the same provider quotas and are not visible here. Check account limits and terms, and monitor provider usage. Free model availability and limits can change.
+
+Each run stops starting work after roughly 30 seconds to fit the function's 60-second maximum. Consequently it may process fewer than 40 articles in a run, and it does not guarantee that every feed or article is processed before it expires. Feed order rotates daily. Articles without a valid publication date or older than 30 days are skipped, and unresolved locations may need manual entry. Feed errors are logged; inspect Vercel's cron/function logs after deployment. The job makes no automatic push notifications or public map changes.
+
+#### Other hosts
+
+The same worker can be run from a checkout with Node.js 22+ and `npm ci`: `node --env-file=/path/to/rss-worker.env scripts/fetch-rss.mjs`. Configure the same variables as above and use the same persistent SQLite `DATA_DIR` or Turso credentials as the app. To schedule it, use your host's cron or a separate worker. The production Docker web image does not include the worker. The local worker accepts other OpenAI-compatible LLM endpoints, but still enforces the shared RSS budget; use a geocoder that permits scheduled batch queries. Public Nominatim is unsuitable for systematic nationwide ingestion.
