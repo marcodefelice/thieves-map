@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { createClient } from '@libsql/client';
 import { createReportStore } from '../lib/db.mjs';
 import { parseRss } from '../lib/rss-parser.mjs';
-import { rssConfig } from '../lib/rss-fetch.mjs';
+import { fetchRss, rssConfig } from '../lib/rss-fetch.mjs';
 
 const createdAt = '2026-11-20T10:00:00.000Z';
 const makeDraft = (source, municipality, province) => ({ source, title: 'Furto', publishedAt: createdAt, occurredAt: null, category: 'theft', notes: 'Un furto segnalato dalla stampa.', locationLabel: `Centro, ${municipality}`, lat: 45.8, lng: 8.8, country: 'IT', municipality, province, createdAt });
@@ -114,4 +114,41 @@ test('cron rejects absent or invalid secrets before reading configuration or acc
     if (previous === undefined) delete process.env.CRON_SECRET;
     else process.env.CRON_SECRET = previous;
   }
+});
+
+
+test('feed and article failures do not prevent other feeds being scanned', async () => {
+  const store = createReportStore(createClient({ url: 'file::memory:' }));
+  const originalFetch = globalThis.fetch;
+  const originalError = console.error;
+  const calls = [], errors = [];
+  const feeds = ['https://a.test/rss', 'https://b.test/rss', 'https://broken.test/rss'];
+  const offset = Math.floor(Date.now() / 86400_000) % feeds.length;
+  // Arrange the rotated sequence so the first source has two articles.
+  const configuredFeeds = [...feeds.slice(feeds.length - offset), ...feeds.slice(0, feeds.length - offset)];
+  const item = (title, path) => `<item><title>${title}</title><link>https://news.test/${path}</link><pubDate>${new Date().toUTCString()}</pubDate></item>`;
+  globalThis.fetch = async (url, options = {}) => {
+    url = String(url);
+    if (url === 'https://broken.test/rss') throw new Error('feed unavailable');
+    if (url === 'https://a.test/rss') return new Response(`<rss><channel>${item('Furto A1', 'a1')}${item('Furto A2', 'a2')}</channel></rss>`);
+    if (url === 'https://b.test/rss') return new Response(`<rss><channel>${item('Furto B1', 'b1')}</channel></rss>`);
+    if (url === 'https://llm.test/chat') {
+      const title = JSON.parse(JSON.parse(options.body).messages[1].content).titolo;
+      calls.push(title);
+      if (title === 'Furto A1') throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+      return Response.json({ choices: [{ message: { content: JSON.stringify({ categoria: 'theft', 'città': 'Varese', via_o_zona: 'Centro', riassunto_neutro: 'Segnalazione riportata dalla stampa.', data_evento: null }) } }] });
+    }
+    if (url.startsWith('https://geo.test/search?')) return Response.json([{ lat: '45.818', lon: '8.825', address: { country_code: 'it', city: 'Varese', province: 'Varese' } }]);
+    throw new Error(`Unexpected request ${url}`);
+  };
+  console.error = (...values) => errors.push(values.join(' '));
+  try {
+    const result = await fetchRss({ store, config: { feeds: configuredFeeds, endpoint: 'https://llm.test/chat', model: 'test', geocoder: 'https://geo.test/search', userAgent: 'Test' } });
+    assert.deepEqual(calls, ['Furto A1', 'Furto B1', 'Furto A2']);
+    assert.equal(result.added, 2);
+    assert.equal(result.failures, 2);
+    assert.equal((await store.listRssDrafts({ country: 'IT' })).total, 2);
+    assert.ok(errors.some(message => message.includes('a.test, AI') && message.includes('timeout')));
+    assert.ok(errors.some(message => message.includes('broken.test')));
+  } finally { globalThis.fetch = originalFetch; console.error = originalError; store.close(); }
 });
