@@ -1,4 +1,6 @@
 /* The dock owns the mobile controls; panels overlay the map without reflowing it. */
+.report-popup-layer { position: absolute; inset: 0; z-index: 700; background: transparent; pointer-events: none; }
+.report-popup-layer .leaflet-popup { pointer-events: auto; }
 .map-dock { display: contents; }
 .mobile-map-tools { display: none; }
 .bottom-bar { width: min(650px, calc(100% - 32px)); bottom: 76px; }

@@ -5,6 +5,19 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { reportStatus } from '../lib/validation.mjs';
 import ReportShare from './ReportShare';
 function Move({target}) { const map=useMap(); useEffect(()=>{if(target)map.flyTo([target.lat,target.lng],15,{duration:1})},[target,map]); return null; }
+function PopupLayer() {
+ const map=useMap();
+ useEffect(()=>{
+  const container=map.getContainer(), pane=map.getPane('popupPane'), mapPane=map.getPane('mapPane');
+  const layer=L.DomUtil.create('div','leaflet-container report-popup-layer',container.parentElement);
+  layer.appendChild(pane);
+  const sync=()=>L.DomUtil.setPosition(pane,L.DomUtil.getPosition(mapPane)||L.point(0,0));
+  sync();
+  map.on('move zoom viewreset',sync);
+  return()=>{map.off('move zoom viewreset',sync);mapPane.appendChild(pane);layer.remove();};
+ },[map]);
+ return null;
+}
 function MapCountry({onCenterChange}) {
  const map=useMapEvents({moveend(){const center=map.getCenter();onCenterChange({lat:center.lat,lng:((center.lng+180)%360+360)%360-180});}});
  useEffect(()=>{const center=map.getCenter();onCenterChange({lat:center.lat,lng:center.lng});},[map,onCenterChange]);
@@ -43,4 +56,4 @@ export default function Map({reports,now,selected,userLocation,fly,locale,labels
   if (!groups.has(key)) groups.set(key, []);
   groups.get(key).push(report);
  }
- return <MapContainer center={[45.4642,9.1900]} zoom={12} zoomControl={false} className="map" scrollWheelZoom><TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"/><ZoomControl position="bottomright"/><Move target={fly}/><MapCountry onCenterChange={onCenterChange}/><PickLocation active={picking} onPick={onPick}/>{Array.from(groups,([key,items])=>{const r=items.find(item=>item.category!=='degradation') || items[0];return <Fragment key={key}>{items.some(item=>item.category==='degradation')&&<Circle center={[r.lat,r.lng]} radius={150} interactive={false} pathOptions={{color:'#9b2ee8',fillColor:'#9b2ee8',fillOpacity:0.09,weight:2}}/>}{items.some(item=>item.locationPrecision!=='exact')&&<Circle center={[r.lat,r.lng]} radius={150} interactive={false} pathOptions={{color:'#60796b',fillColor:'#60796b',fillOpacity:0.09,weight:1}}/>}<ReportMarker report={r} items={items} now={now} picking={picking} locale={locale} labels={labels} onConfirmed={onConfirmed} sharedReportId={sharedReportId}/></Fragment>})}{userLocation && <Marker position={[userLocation.lat,userLocation.lng]} interactive={false} icon={userLocationIcon}/>}{selected && <Marker position={[selected.lat,selected.lng]} interactive={false} icon={icon('selected-marker')}/>}</MapContainer>}
+ return <MapContainer center={[45.4642,9.1900]} zoom={12} zoomControl={false} className="map" scrollWheelZoom><PopupLayer/><TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"/><ZoomControl position="bottomright"/><Move target={fly}/><MapCountry onCenterChange={onCenterChange}/><PickLocation active={picking} onPick={onPick}/>{Array.from(groups,([key,items])=>{const r=items.find(item=>item.category!=='degradation') || items[0];return <Fragment key={key}>{items.some(item=>item.category==='degradation')&&<Circle center={[r.lat,r.lng]} radius={150} interactive={false} pathOptions={{color:'#9b2ee8',fillColor:'#9b2ee8',fillOpacity:0.09,weight:2}}/>}{items.some(item=>item.locationPrecision!=='exact')&&<Circle center={[r.lat,r.lng]} radius={150} interactive={false} pathOptions={{color:'#60796b',fillColor:'#60796b',fillOpacity:0.09,weight:1}}/>}<ReportMarker report={r} items={items} now={now} picking={picking} locale={locale} labels={labels} onConfirmed={onConfirmed} sharedReportId={sharedReportId}/></Fragment>})}{userLocation && <Marker position={[userLocation.lat,userLocation.lng]} interactive={false} icon={userLocationIcon}/>}{selected && <Marker position={[selected.lat,selected.lng]} interactive={false} icon={icon('selected-marker')}/>}</MapContainer>}
