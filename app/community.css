@@ -108,3 +108,7 @@
 .marker.degradation-marker,.latest-dot.degradation,.degradation-dot{background:#9b2ee8}
 
 .confirmation-summary{display:flex;flex-direction:column;gap:3px;margin-top:10px;padding:9px 11px;border:1px solid #cbded0;border-radius:6px;background:#edf5ee;color:#234c38}.confirmation-summary strong{font-size:13px}.confirmation-summary span{font-size:11px;line-height:1.4}.leaflet-popup-content p.confirmation-message{margin:8px 0 0;color:#536d5e;font-size:11px;line-height:1.4}
+.moderator-form-notice{margin:18px 0 12px;padding:10px 12px;border-radius:4px;background:#edf5ee;color:#315747;font-size:11px;line-height:1.5}
+.report-details label.moderator-verification{display:flex;align-items:flex-start;gap:8px;margin:16px 0;color:#315747;font-size:11px;letter-spacing:0;line-height:1.5}
+.moderator-verification input{flex:none;margin:2px 0 0}
+.account-home-link{display:block;width:fit-content;margin:0 auto 20px;color:#315747;font-size:13px;font-weight:700}

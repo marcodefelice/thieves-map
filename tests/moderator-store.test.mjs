@@ -4,7 +4,7 @@ import { createClient } from '@libsql/client';
 import { createReportStore } from '../lib/db.mjs';
 import { currentModerator, hashPassword, hashToken, verifyPassword } from '../lib/moderator-auth.mjs';
 import { officialAreas } from '../lib/official-areas.mjs';
-import { validateAdminReport, validateModeratorApplication, validateModeratorReport } from '../lib/validation.mjs';
+import { validateAdminReport, validateModeratorApplication, validateModeratorReport, validateModeratorHomeReport } from '../lib/validation.mjs';
 
 const now = '2026-11-19T10:00:00.000Z';
 
@@ -110,5 +110,32 @@ test('limits repeated activation or login attempts without retaining raw credent
   assert.equal(await store.recordModeratorLoginAttempt({ clientHash: 'network', identityHash: 'identity', createdAt: now }), false);
   await store.clearModeratorLoginAttempts({ clientHash: 'network', identityHash: 'identity' });
   assert.equal(await store.recordModeratorLoginAttempt({ clientHash: 'network', identityHash: 'identity', createdAt: now }), true);
+  store.close();
+});
+
+
+test('home moderator reports require explicit verification and a source for indirect reports', () => {
+  const report = { lat: 45.8, lng: 8.8, occurredAt: now, category: 'theft', verified: true };
+  assert.equal(validateModeratorHomeReport(report, Date.parse(now)), null);
+  assert.ok(validateModeratorHomeReport({ ...report, verified: false }, Date.parse(now)));
+  assert.ok(validateModeratorHomeReport({ ...report, indirect: true }, Date.parse(now)));
+  assert.ok(validateModeratorHomeReport({ ...report, indirect: true, source: 'http://example.test' }, Date.parse(now)));
+  assert.equal(validateModeratorHomeReport({ ...report, indirect: true, source: 'https://example.test/news' }, Date.parse(now)), null);
+  assert.ok(validateModeratorHomeReport({ ...report, recordKind: 'official_event' }, Date.parse(now)));
+});
+
+test('verified home reports are unlimited, attributed, private by category and audited', async () => {
+  const store = createReportStore(createClient({ url: 'file::memory:' }));
+  const report = { lat: 45.80013, lng: 8.80012, occurredAt: now, createdAt: now, moderatorId: 7, verifiedByNickname: 'Anna.Map', country: 'IT', municipality: 'Varese', category: 'theft' };
+  const first = await store.submitModerated(report);
+  const second = await store.submitModerated(report);
+  assert.notEqual(first, second);
+  const row = (await store.list()).find(item => item.id === first);
+  assert.equal(row.verifiedByNickname, 'Anna.Map');
+  assert.equal(row.verifiedAt, now);
+  assert.notEqual(row.lat, report.lat);
+  const audit = await store.listModerationAudit({ targetType: 'report', targetId: first });
+  assert.deepEqual(new Set(audit.map(item => item.action)), new Set(['report_created', 'report_verified']));
+  assert.equal(audit.find(item => item.action === 'report_verified').moderatorId, 7);
   store.close();
 });
